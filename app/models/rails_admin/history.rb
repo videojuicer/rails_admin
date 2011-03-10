@@ -25,13 +25,11 @@ module RailsAdmin
     end
 
     def self.get_history_for_dates(mstart, mstop, ystart, ystop)
-      if mstart > mstop
-        rows     = aggregate(:all.count, :fields => [ :year, :month ], :month => mstart + 1..12, :year => ystart)
-        rows_two = aggregate(:all.count, :fields => [ :year, :month ], :month => 1..mstop,       :year => ystop)
-
-        rows.concat(rows_two)
+      rows = if mstart > mstop
+        aggregate(:all.count, :fields => [ :year, :month ], :month => mstart + 1..12, :year => ystart) |
+        aggregate(:all.count, :fields => [ :year, :month ], :month => 1..mstop,       :year => ystop)
       else
-        rows = aggregate(:all.count, :fields => [ :year, :month ], :month => mstart + 1..mstop, :year => ystart)
+        aggregate(:all.count, :fields => [ :year, :month ], :month => mstart + 1..mstop, :year => ystart)
       end
 
       result_class = Struct.new(:year, :month, :number)
