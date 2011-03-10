@@ -68,35 +68,45 @@ module RailsAdmin
     # the page count and an AR query result containing the history
     # items.
     def self.history_for_model(model, query, sort, sort_reverse, all, page, per_page = RailsAdmin::Config::Sections::List.default_items_per_page || 20)
-      page ||= "1"
-      history = History.where :table => model.pretty_name
+      page ||= 1
+      history = History.all(:table => model.pretty_name)
 
       if query
-        history = history.where "#{History.connection.quote_column_name(:message)} LIKE ? OR #{History.connection.quote_column_name(:username)} LIKE ?", "%#{query}%", "%#{query}%"
+        history &= (
+          History.all(:message.like  => "%#{query}%") |
+          History.all(:username.like => "%#{query}%")
+        )
       end
 
       if sort
-        history = history.order(sort_reverse == "true" ? "#{sort} DESC" : sort)
+        sort    = sort.to_sym
+        sort    = sort.desc if sort_reverse == 'true'
+        history = history.all(:order => [ sort ])
       end
 
       if all
         [1, history]
       else
         page_count = (history.count.to_f / per_page).ceil
-        [page_count, history.limit(per_page).offset((page.to_i - 1) * per_page)]
+        [page_count, history.all(:limit => per_page, :offset => (page.to_i - 1) * per_page)]
       end
     end
 
     # Fetch the history items for a specific object instance.
     def self.history_for_object(model, object, query, sort, sort_reverse)
-      history = History.where :table => model.pretty_name, :item => object.id
+      history = History.all(:table => model.pretty_name, :item => object.id)
 
       if query
-        history = history.where "#{History.connection.quote_column_name(:message)} LIKE ? OR #{History.connection.quote_column_name(:username)} LIKE ?", "%#{query}%", "%#{query}%"
+        history &= (
+          History.all(:message.like  => "%#{query}%") |
+          History.all(:username.like => "%#{query}%")
+        )
       end
 
       if sort
-        history = history.order(sort_reverse == "true" ? "#{sort} DESC" : sort)
+        sort    = sort.to_sym
+        sort    = sort.desc if sort_reverse == 'true'
+        history = history.all(:order => [ sort ])
       end
 
       history
@@ -118,13 +128,13 @@ module RailsAdmin
       # we can remove the rescue, etc.
       begin
         RailsAdmin::History.get_history_for_dates(start_month, stop_month, start_year, stop_year)
-      rescue ActiveRecord::StatementInvalid => e
-        if e.message =~ /rails_admin_histories/ # seems to be the only common text in the db-specific error messages
-          message = "Please run the generator \"rails generate rails_admin:install_admin\" then migrate your database.  #{e.message}"
+      rescue RailsAdmin::History::QueryError => e
+        message = if e.message.include?('rails_admin_histories') # seems to be the only common text in the db-specific error messages
+          "Please run the generator \"rails generate rails_admin:install_admin\" then migrate your database.  #{e.message}"
         else
-          message = e.message
+          e.message
         end
-        raise ActiveRecord::StatementInvalid.new message
+        raise e.class, message, e.backtrace
       end
     end
 
@@ -141,7 +151,7 @@ module RailsAdmin
 
       current_month = current_diff.month.ago
 
-      return RailsAdmin::History.find(:all, :conditions => ["month = ? and year = ?", current_month.month, current_month.year]), current_month
+      return History.all(:month => current_month.month, :year => current_month.year), current_month
     end
 
     # Fetch the most recent history item for a model.

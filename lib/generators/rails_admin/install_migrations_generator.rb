@@ -7,7 +7,7 @@ module RailsAdmin
     source_root File.expand_path('../templates', __FILE__)
 
     def self.next_migration_number(dirname)
-      if ActiveRecord::Base.timestamped_migrations
+      if defined?(ActiveRecord) && ActiveRecord::Base.timestamped_migrations
         migration_number = Time.now.utc.strftime("%Y%m%d%H%M%S").to_i
         migration_number += 1
         migration_number.to_s

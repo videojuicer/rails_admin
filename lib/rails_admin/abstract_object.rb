@@ -10,7 +10,7 @@
     end
 
     def attributes=(attributes)
-      object.send :attributes=, attributes, false
+      object.attributes = attributes
     end
 
     def method_missing(name, *args, &block)
@@ -18,7 +18,8 @@
     end
 
     def save(options = { :validate => true })
-      object.save(options) and update_all_associations
+      method = options[:validate] ? :save : :save!
+      object.send(method) and update_all_associations
     end
 
     protected
