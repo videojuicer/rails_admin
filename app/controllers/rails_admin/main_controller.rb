@@ -192,18 +192,20 @@ module RailsAdmin
       return {} unless query
       statements = []
       values = []
-      conditions = options[:conditions] || [""]
-      table_name = @abstract_model.model.table_name
+
+      model      = @abstract_model.model
+      collection = nil
 
       @properties.select{|property| property[:type] == :string}.each do |property|
-        statements << "(#{table_name}.#{property[:name]} LIKE ?)"
-        values << "%#{query}%"
+        new_collection = model.all(property[:name].like => "%#{query}%")
+        if collection
+          collection |= new_collection
+        else
+          collection = new_collection
+        end
       end
 
-      conditions[0] += " AND " unless conditions == [""]
-      conditions[0] += statements.join(" OR ")
-      conditions += values
-      conditions != [""] ? {:conditions => conditions} : {}
+      { :conditions => collection.query.conditions }
     end
 
     def get_filter_hash(options)
