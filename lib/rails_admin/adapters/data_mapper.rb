@@ -95,7 +95,7 @@ module RailsAdmin
             :pretty_name  => relationship.name.to_s.tr('_', ' ').capitalize,
             :type         => relationship_type_for(relationship),
             :parent_model => relationship.parent_model,
-            :parent_key   => relationship.parent_key,
+            :parent_key   => relationship.parent_key.map { |property| property.name },
             :child_model  => relationship.child_model,
             :child_key    => relationship.child_key.map { |property| property.name },
           }
