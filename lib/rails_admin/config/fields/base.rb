@@ -27,7 +27,7 @@ module RailsAdmin
           @defined = false
           @name = name
           @order = 0
-          @properties = properties
+          @properties = properties || {}
 
           # If parent is able to group fields the field should be aware of it
           if parent.kind_of?(RailsAdmin::Config::HasGroups)
