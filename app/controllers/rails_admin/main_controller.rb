@@ -12,10 +12,11 @@ module RailsAdmin
       @page_type = "dashboard"
 
       @history = AbstractHistory.history_latest_summaries
-      # history listing with ref = 0 and section = 4
-      @historyListing, @current_month = AbstractHistory.history_for_month(0, 4)
+      @month = DateTime.now.month
+      @year = DateTime.now.year
+      @history= AbstractHistory.history_for_month(@month, @year)
 
-      @abstract_models = RailsAdmin::AbstractModel.all
+      @abstract_models = RailsAdmin::Config.visible_models.map(&:abstract_model)
 
       @most_recent_changes = {}
       @count = {}
@@ -33,11 +34,21 @@ module RailsAdmin
     def list
       @authorization_adapter.authorize(:list, @abstract_model) if @authorization_adapter
       list_entries
-      @xhr = request.xhr?
       visible = lambda { @model_config.list.visible_fields.map {|f| f.name } }
       respond_to do |format|
-        format.html { render :layout => @xhr ? false : 'rails_admin/list' }
-        format.json { render :json => @objects.to_json(:only => visible.call) }
+        format.html { render :layout => 'rails_admin/list' }
+        format.js { render :layout => 'rails_admin/plain.html.erb' }
+        format.json do
+          if params[:compact]
+            objects = []
+            @objects.each do |object|
+               objects << { :id => object.id, :label => @model_config.with(:object => object).object_label }
+            end
+            render :json => objects
+          else
+            render :json => @objects.to_json(:only => visible.call)
+          end
+        end
         format.xml { render :xml => @objects.to_json(:only => visible.call) }
       end
     end
@@ -50,14 +61,18 @@ module RailsAdmin
         end
         @authorization_adapter.authorize(:new, @abstract_model, @object)
       end
-      @page_name = t("admin.actions.create").capitalize + " " + @model_config.create.label.downcase
+      @page_name = t("admin.actions.create").capitalize + " " + @model_config.label.downcase
       @page_type = @abstract_model.pretty_name.downcase
-      render :layout => 'rails_admin/form'
+      respond_to do |format|
+        format.html { render :layout => 'rails_admin/form' }
+        format.js   { render :layout => 'rails_admin/plain.html.erb' }
+      end
     end
 
     def create
       @modified_assoc = []
       @object = @abstract_model.new
+      @model_config.create.fields.each {|f| f.parse_input(@attributes) if f.respond_to?(:parse_input) }
       if @authorization_adapter
         @authorization_adapter.attributes_for(:create, @abstract_model).each do |name, value|
           @object.send("#{name}=", value)
@@ -66,12 +81,23 @@ module RailsAdmin
       end
       @object.attributes = @attributes
       @object.associations = params[:associations]
-      @page_name = t("admin.actions.create").capitalize + " " + @model_config.create.label.downcase
+      @page_name = t("admin.actions.create").capitalize + " " + @model_config.label.downcase
       @page_type = @abstract_model.pretty_name.downcase
 
       if @object.save
-        AbstractHistory.create_history_item("Created #{@model_config.list.with(:object => @object).object_label}", @object, @abstract_model, _current_user)
-        redirect_to_on_success
+        object_label = @model_config.with(:object => @object).object_label
+        AbstractHistory.create_history_item("Created #{object_label}", @object, @abstract_model, _current_user)
+        respond_to do |format|
+          format.html do
+            redirect_to_on_success
+          end
+          format.js do
+            render :json => {
+              :id => @object.id,
+              :label => object_label,
+            }
+          end
+        end
       else
         render_error
       end
@@ -80,7 +106,7 @@ module RailsAdmin
     def edit
       @authorization_adapter.authorize(:edit, @abstract_model, @object) if @authorization_adapter
 
-      @page_name = t("admin.actions.update").capitalize + " " + @model_config.update.label.downcase
+      @page_name = t("admin.actions.update").capitalize + " " + @model_config.label.downcase
       @page_type = @abstract_model.pretty_name.downcase
 
       render :layout => 'rails_admin/form'
@@ -92,10 +118,12 @@ module RailsAdmin
       @cached_assocations_hash = associations_hash
       @modified_assoc = []
 
-      @page_name = t("admin.actions.update").capitalize + " " + @model_config.update.label.downcase
+      @page_name = t("admin.actions.update").capitalize + " " + @model_config.label.downcase
       @page_type = @abstract_model.pretty_name.downcase
 
       @old_object = @object.clone
+
+      @model_config.update.fields.each {|f| f.parse_input(@attributes) if f.respond_to?(:parse_input) }
 
       @object.attributes = @attributes
       @object.associations = params[:associations]
@@ -111,7 +139,7 @@ module RailsAdmin
     def delete
       @authorization_adapter.authorize(:delete, @abstract_model, @object) if @authorization_adapter
 
-      @page_name = t("admin.actions.delete").capitalize + " " + @model_config.list.label.downcase
+      @page_name = t("admin.actions.delete").capitalize + " " + @model_config.label.downcase
       @page_type = @abstract_model.pretty_name.downcase
 
       render :layout => 'rails_admin/delete'
@@ -121,9 +149,9 @@ module RailsAdmin
       @authorization_adapter.authorize(:destroy, @abstract_model, @object) if @authorization_adapter
 
       @object = @object.destroy
-      flash[:notice] = t("admin.delete.flash_confirmation", :name => @model_config.list.label)
+      flash[:notice] = t("admin.delete.flash_confirmation", :name => @model_config.label)
 
-      AbstractHistory.create_history_item("Destroyed #{@model_config.list.with(:object => @object).object_label}", @object, @abstract_model, _current_user)
+      AbstractHistory.create_history_item("Destroyed #{@model_config.with(:object => @object).object_label}", @object, @abstract_model, _current_user)
 
       redirect_to rails_admin_list_path(:model_name => @abstract_model.to_param)
     end
@@ -131,7 +159,7 @@ module RailsAdmin
     def bulk_delete
       @authorization_adapter.authorize(:bulk_delete, @abstract_model) if @authorization_adapter
 
-      @page_name = t("admin.actions.delete").capitalize + " " + @model_config.list.label.downcase
+      @page_name = t("admin.actions.delete").capitalize + " " + @model_config.label.downcase
       @page_type = @abstract_model.pretty_name.downcase
 
       render :layout => 'rails_admin/delete'
@@ -144,7 +172,7 @@ module RailsAdmin
       @destroyed_objects = @abstract_model.destroy(params[:bulk_ids], scope)
 
       @destroyed_objects.each do |object|
-        message = "Destroyed #{@model_config.list.with(:object => object).object_label}"
+        message = "Destroyed #{@model_config.with(:object => object).object_label}"
         AbstractHistory.create_history_item(message, object, @abstract_model, _current_user)
       end
 
@@ -190,18 +218,26 @@ module RailsAdmin
     def get_query_hash(options)
       query = params[:query]
       return {} unless query
+      field_search = !!query.index(":")
       statements = []
       values = []
 
       model      = @abstract_model.model
       collection = nil
 
-      @properties.select{|property| property[:type] == :string}.each do |property|
-        new_collection = model.all(property[:name].like => "%#{query}%")
-        if collection
-          collection |= new_collection
-        else
-          collection = new_collection
+      # field search allows a search of the type "<fieldname>:<query>"
+      if field_search
+        field, query = query.split ":"
+        return {} unless field && query
+        @properties.select{|property| property[:name] == field.to_sym}.each do |property|
+          new_collection = model.all(property[:name] => query)
+          collection = (collection ? collection | new_collection : new_collection)
+        end
+      # search over all string fields
+      else
+        @properties.select{|property| property[:type] == :string }.each do |property|
+          new_collection = model.all(property[:name].like => "%#{query}%")
+          collection = (collection ? collection | new_collection : new_collection)
         end
       end
 
@@ -217,9 +253,15 @@ module RailsAdmin
       table_name = @abstract_model.model.table_name
 
       filter.each_pair do |key, value|
-        @properties.select{|property| property[:type] == :boolean && property[:name] == key.to_sym}.each do |property|
-          statements << "(#{table_name}.#{key} = ?)"
-          values << (value == "true")
+        if field = @model_config.list.fields.find {|f| f.name == key.to_sym}
+          case field.type
+          when :string, :text
+            statements << "(#{table_name}.#{key} LIKE ?)"
+            values << value
+          when :boolean
+            statements << "(#{table_name}.#{key} = ?)"
+            values << (value == "true")
+          end
         end
       end
 
@@ -230,7 +272,7 @@ module RailsAdmin
     end
 
     def get_attributes
-      @attributes = params[@abstract_model.to_param] || {}
+      @attributes = params[@abstract_model.to_param.singularize.gsub('~','_')] || {}
       @attributes.each do |key, value|
         # Delete fields that are blank
         @attributes[key] = nil if value.blank?
@@ -239,7 +281,7 @@ module RailsAdmin
 
     def redirect_to_on_success
       param = @abstract_model.to_param
-      pretty_name = @model_config.update.label
+      pretty_name = @model_config.label
       action = params[:action]
 
       if params[:_add_another]
@@ -256,8 +298,17 @@ module RailsAdmin
 
     def render_error whereto = :new
       action = params[:action]
-      flash.now[:error] = t("admin.flash.error", :name => @model_config.update.label, :action => t("admin.actions.#{action}d"))
-      render whereto, :layout => 'rails_admin/form'
+
+      flash.now[:error] = t("admin.flash.error", :name => @model_config.label, :action => t("admin.actions.#{action}d"))
+
+      if @object.errors[:base].size > 0
+        flash.now[:error] << ". " << @object.errors[:base].to_s
+      end
+
+      respond_to do |format|
+        format.html { render whereto, :layout => 'rails_admin/form', :status => :not_acceptable }
+        format.js   { render whereto, :layout => 'rails_admin/plain.html.erb', :status => :not_acceptable  }
+      end
     end
 
     def check_for_cancel
@@ -281,7 +332,7 @@ module RailsAdmin
       options.merge!(other)
 
       # DK: DataMapper does not support eager loading.
-      # associations = @model_config.list.visible_fields.select {|f| f.association? }.map {|f| f.association[:name] }
+      # associations = @model_config.list.visible_fields.select {|f| f.association? && !f.polymorphic? }.map {|f| f.association[:name] }
       # options.merge!(:include => associations) unless associations.empty?
 
       if params[:all]
@@ -300,7 +351,7 @@ module RailsAdmin
       @record_count = @abstract_model.count(options, scope)
 
       @page_type = @abstract_model.pretty_name.downcase
-      @page_name = t("admin.list.select", :name => @model_config.list.label.downcase)
+      @page_name = t("admin.list.select", :name => @model_config.label.downcase)
     end
 
     def associations_hash

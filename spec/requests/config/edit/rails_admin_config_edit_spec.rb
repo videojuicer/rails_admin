@@ -2,10 +2,6 @@ require 'spec_helper'
 
 describe "RailsAdmin Config DSL Edit Section" do
 
-  before(:each) do
-    RailsAdmin::Config.reset
-  end
-
   describe "field groupings" do
 
     it "should be hideable" do
@@ -19,9 +15,8 @@ describe "RailsAdmin Config DSL Edit Section" do
       end
       get rails_admin_new_path(:model_name => "team")
       # Should not have the group header
-      response.should_not have_tag("h2", :content => "Hidden Group")
+      response.should_not have_tag("legend", :content => "Hidden Group")
       # Should not have any of the group's fields either
-      response.should_not have_tag("select#team_league_id")
       response.should_not have_tag("select#team_division_id")
       response.should_not have_tag("input#team_name")
       response.should_not have_tag("input#team_logo_url")
@@ -35,6 +30,21 @@ describe "RailsAdmin Config DSL Edit Section" do
       response.should_not have_tag("input#team_revenue")
     end
 
+    it "should hide association groupings by the name of the association" do
+      RailsAdmin.config Team do
+        edit do
+          group :players do
+            hide
+          end
+        end
+      end
+      get rails_admin_new_path(:model_name => "team")
+      # Should not have the group header
+      response.should_not have_tag("legend", :content => "Players")
+      # Should not have any of the group's fields either
+      response.should_not have_tag("select#associations_players")
+    end
+
     it "should be renameable" do
       RailsAdmin.config Team do
         edit do
@@ -44,7 +54,8 @@ describe "RailsAdmin Config DSL Edit Section" do
         end
       end
       get rails_admin_new_path(:model_name => "team")
-      response.should have_tag("h2", :content => "Renamed group")
+
+      response.should have_tag("legend", :content => "Renamed group")
     end
 
     it "should have accessor for its fields" do
@@ -56,20 +67,18 @@ describe "RailsAdmin Config DSL Edit Section" do
           end
           group :belongs_to_associations do
             label "Belong's to associations"
-            field :league_id
             field :division_id
           end
         end
       end
       get rails_admin_new_path(:model_name => "team")
-      response.should have_tag("h2", :content => "Basic info")
-      response.should have_tag("h2", :content => "Belong's to associations")
+      response.should have_tag("legend", :content => "Basic info")
+      response.should have_tag("legend", :content => "Belong's to associations")
       response.should have_tag(".field") do |elements|
-        elements[0].should have_tag("#teams_name")
-        elements[1].should have_tag("#teams_logo_url")
-        elements[2].should have_tag("#teams_league_id")
-        elements[3].should have_tag("#teams_division_id")
-        elements.length.should == 4
+        elements[0].should have_tag("#team_name")
+        elements[1].should have_tag("#team_logo_url")
+        elements[2].should have_tag("#team_division_id")
+        elements.length.should == 3
       end
     end
 
@@ -77,7 +86,6 @@ describe "RailsAdmin Config DSL Edit Section" do
       RailsAdmin.config Team do
         edit do
           group :default do
-            field :league_id
             field :name
             field :logo_url
           end
@@ -93,7 +101,6 @@ describe "RailsAdmin Config DSL Edit Section" do
       end
       get rails_admin_new_path(:model_name => "team")
       response.should have_tag(".field") do |elements|
-        elements.should have_tag("label", :content => "League")
         elements.should have_tag("label", :content => "Name")
         elements.should have_tag("label", :content => "Logo url")
         elements.should have_tag("label", :content => "Division")
@@ -107,20 +114,19 @@ describe "RailsAdmin Config DSL Edit Section" do
 
     it "should show all by default" do
       get rails_admin_new_path(:model_name => "team")
-      response.should have_tag("select#teams_league_id")
-      response.should have_tag("select#teams_division_id")
-      response.should have_tag("input#teams_name")
-      response.should have_tag("input#teams_logo_url")
-      response.should have_tag("input#teams_manager")
-      response.should have_tag("input#teams_ballpark")
-      response.should have_tag("input#teams_mascot")
-      response.should have_tag("input#teams_founded")
-      response.should have_tag("input#teams_wins")
-      response.should have_tag("input#teams_losses")
-      response.should have_tag("input#teams_win_percentage")
-      response.should have_tag("input#teams_revenue")
-      response.should have_tag("input#teams_players")
-      response.should have_tag("input#teams_fans")
+      response.should have_tag("select#team_division_id")
+      response.should have_tag("input#team_name")
+      response.should have_tag("input#team_logo_url")
+      response.should have_tag("input#team_manager")
+      response.should have_tag("input#team_ballpark")
+      response.should have_tag("input#team_mascot")
+      response.should have_tag("input#team_founded")
+      response.should have_tag("input#team_wins")
+      response.should have_tag("input#team_losses")
+      response.should have_tag("input#team_win_percentage")
+      response.should have_tag("input#team_revenue")
+      response.should have_tag("select#associations_players")
+      response.should have_tag("select#associations_fans")
     end
 
     it "should appear in order defined" do
@@ -133,26 +139,24 @@ describe "RailsAdmin Config DSL Edit Section" do
       end
       get rails_admin_new_path(:model_name => "team")
       response.should have_tag(".field") do |elements|
-        elements[0].should have_tag("#teams_manager")
-        elements[1].should have_tag("#teams_division_id")
-        elements[2].should have_tag("#teams_name")
+        elements[0].should have_tag("#team_manager")
+        elements[1].should have_tag("#team_division_id")
+        elements[2].should have_tag("#team_name")
       end
     end
 
     it "should only show the defined fields if some fields are defined" do
       RailsAdmin.config Team do
         edit do
-          field :league_id
           field :division_id
           field :name
         end
       end
       get rails_admin_new_path(:model_name => "team")
       response.should have_tag(".field") do |elements|
-        elements[0].should have_tag("#teams_league_id")
-        elements[1].should have_tag("#teams_division_id")
-        elements[2].should have_tag("#teams_name")
-        elements.length.should == 3
+        elements[0].should have_tag("#team_division_id")
+        elements[1].should have_tag("#team_name")
+        elements.length.should == 2
       end
     end
 
@@ -199,7 +203,6 @@ describe "RailsAdmin Config DSL Edit Section" do
       end
       get rails_admin_new_path(:model_name => "team")
       response.should have_tag(".field") do |elements|
-        elements.should have_tag("label", :content => "League")
         elements.should have_tag("label", :content => "Division")
         elements.should have_tag("label", :content => "Name (STRING)")
         elements.should have_tag("label", :content => "Logo url (STRING)")
@@ -226,7 +229,6 @@ describe "RailsAdmin Config DSL Edit Section" do
       end
       get rails_admin_new_path(:model_name => "team")
       response.should have_tag(".field") do |elements|
-        elements.should have_tag("label", :content => "League")
         elements.should have_tag("label", :content => "Division")
         elements.should have_tag("label", :content => "Name (STRING)")
         elements.should have_tag("label", :content => "Logo url (STRING)")
@@ -255,8 +257,8 @@ describe "RailsAdmin Config DSL Edit Section" do
       end
       get rails_admin_new_path(:model_name => "team")
       response.should have_tag(".field") do |elements|
-        elements[0].should have_tag("#teams_division_id")
-        elements[1].should have_tag("#teams_name")
+        elements[0].should have_tag("#team_division_id")
+        elements[1].should have_tag("#team_name")
       end
     end
 
@@ -270,7 +272,6 @@ describe "RailsAdmin Config DSL Edit Section" do
       end
       get rails_admin_new_path(:model_name => "team")
       response.should have_tag(".field") do |elements|
-        elements.should have_tag("label", :content => "League")
         elements.should have_tag("label", :content => "Division")
         elements.should_not have_tag("label", :content => "Name")
         elements.should_not have_tag("label", :content => "Logo url")
@@ -297,7 +298,6 @@ describe "RailsAdmin Config DSL Edit Section" do
       end
       get rails_admin_new_path(:model_name => "team")
       response.should have_tag(".field") do |elements|
-        elements.should have_tag("label", :content => "League")
         elements.should have_tag("label", :content => "Division")
         elements.should_not have_tag("label", :content => "Name")
         elements.should_not have_tag("label", :content => "Logo url")
@@ -355,6 +355,204 @@ describe "RailsAdmin Config DSL Edit Section" do
     end
   end
 
+  describe "input format of" do
+
+    before(:each) do
+      RailsAdmin::Config.excluded_models = [RelTest]
+      @time = ::Time.now.getutc
+    end
+
+    describe "a datetime field" do
+
+      it "should default to %B %d, %Y %H:%M" do
+        get rails_admin_new_path(:model_name => "field_test")
+
+        fill_in "field_test[datetime_field]", :with => @time.strftime("%B %d, %Y %H:%M")
+        click_button "Save"
+
+        @record = RailsAdmin::AbstractModel.new("FieldTest").first
+
+        @record.datetime_field.strftime("%Y-%m-%d %H:%M").should eql(@time.strftime("%Y-%m-%d %H:%M"))
+      end
+
+      it "should have a simple customization option" do
+        RailsAdmin.config FieldTest do
+          edit do
+            field :datetime_field do
+              date_format :default
+            end
+          end
+        end
+
+        get rails_admin_new_path(:model_name => "field_test")
+
+        fill_in "field_test[datetime_field]", :with => @time.strftime("%a, %d %b %Y %H:%M:%S")
+        click_button "Save"
+
+        @record = RailsAdmin::AbstractModel.new("FieldTest").first
+
+        @record.datetime_field.should eql(::DateTime.parse(@time.to_s))
+      end
+
+      it "should have a customization option" do
+        RailsAdmin.config FieldTest do
+          list do
+            field :datetime_field do
+              strftime_format "%Y-%m-%d %H:%M:%S"
+            end
+          end
+        end
+
+        get rails_admin_new_path(:model_name => "field_test")
+
+        fill_in "field_test[datetime_field]", :with => @time.strftime("%Y-%m-%d %H:%M:%S")
+        click_button "Save"
+
+        @record = RailsAdmin::AbstractModel.new("FieldTest").first
+
+        @record.datetime_field.should eql(::DateTime.parse(@time.to_s))
+      end
+    end
+
+    describe "a timestamp field" do
+
+      it "should default to %B %d, %Y %H:%M" do
+        get rails_admin_new_path(:model_name => "field_test")
+
+        fill_in "field_test[timestamp_field]", :with => @time.strftime("%B %d, %Y %H:%M")
+        click_button "Save"
+
+        @record = RailsAdmin::AbstractModel.new("FieldTest").first
+
+        @record.timestamp_field.strftime("%Y-%m-%d %H:%M").should eql(@time.strftime("%Y-%m-%d %H:%M"))
+      end
+
+      it "should have a simple customization option" do
+        RailsAdmin.config FieldTest do
+          edit do
+            field :timestamp_field do
+              date_format :default
+            end
+          end
+        end
+
+        get rails_admin_new_path(:model_name => "field_test")
+
+        fill_in "field_test[timestamp_field]", :with => @time.strftime("%a, %d %b %Y %H:%M:%S")
+        click_button "Save"
+
+        @record = RailsAdmin::AbstractModel.new("FieldTest").first
+
+        @record.timestamp_field.should eql(::DateTime.parse(@time.to_s))
+      end
+
+      it "should have a customization option" do
+        RailsAdmin.config FieldTest do
+          edit do
+            field :timestamp_field do
+              strftime_format "%Y-%m-%d %H:%M:%S"
+            end
+          end
+        end
+
+        get rails_admin_new_path(:model_name => "field_test")
+
+        fill_in "field_test[timestamp_field]", :with => @time.strftime("%Y-%m-%d %H:%M:%S")
+        click_button "Save"
+
+        @record = RailsAdmin::AbstractModel.new("FieldTest").first
+
+        @record.timestamp_field.should eql(::DateTime.parse(@time.to_s))
+      end
+    end
+
+    describe "a time field" do
+
+      it "should default to %H:%M" do
+        get rails_admin_new_path(:model_name => "field_test")
+
+        fill_in "field_test[time_field]", :with => @time.strftime("%H:%M")
+        click_button "Save"
+
+        @record = RailsAdmin::AbstractModel.new("FieldTest").first
+
+        @record.time_field.strftime("%H:%M").should eql(@time.strftime("%H:%M"))
+      end
+
+      it "should have a customization option" do
+        RailsAdmin.config FieldTest do
+          edit do
+            field :time_field do
+              strftime_format "%I:%M %p"
+            end
+          end
+        end
+
+        get rails_admin_new_path(:model_name => "field_test")
+
+        fill_in "field_test[time_field]", :with => @time.strftime("%I:%M %p")
+        click_button "Save"
+
+        @record = RailsAdmin::AbstractModel.new("FieldTest").first
+
+        @record.time_field.strftime("%H:%M").should eql(@time.strftime("%H:%M"))
+      end
+    end
+
+    describe "a date field" do
+
+      it "should default to %B %d, %Y" do
+        get rails_admin_new_path(:model_name => "field_test")
+
+        fill_in "field_test[date_field]", :with => @time.strftime("%B %d, %Y")
+        click_button "Save"
+
+        @record = RailsAdmin::AbstractModel.new("FieldTest").first
+
+        @record.date_field.should eql(::Date.parse(@time.to_s))
+      end
+
+
+      it "should have a simple customization option" do
+        RailsAdmin.config FieldTest do
+          edit do
+            field :date_field do
+              date_format :default
+            end
+          end
+        end
+
+        get rails_admin_new_path(:model_name => "field_test")
+
+        fill_in "field_test[date_field]", :with => @time.strftime("%Y-%m-%d")
+        click_button "Save"
+
+        @record = RailsAdmin::AbstractModel.new("FieldTest").first
+
+        @record.date_field.should eql(::Date.parse(@time.to_s))
+      end
+
+      it "should have a customization option" do
+        RailsAdmin.config FieldTest do
+          edit do
+            field :date_field do
+              strftime_format "%Y-%m-%d"
+            end
+          end
+        end
+
+        get rails_admin_new_path(:model_name => "field_test")
+
+        fill_in "field_test[date_field]", :with => @time.strftime("%Y-%m-%d")
+        click_button "Save"
+
+        @record = RailsAdmin::AbstractModel.new("FieldTest").first
+
+        @record.date_field.should eql(::Date.parse(@time.to_s))
+      end
+    end
+  end
+
   describe "fields which are nullable and have AR validations" do
     it "should be required" do
       # draft.notes is nullable and has no validation
@@ -398,7 +596,7 @@ describe "RailsAdmin Config DSL Edit Section" do
       end
 
       get rails_admin_new_path(:model_name => "draft")
-      response.should contain(/CKEDITOR\.replace.*?drafts_notes/)
+      response.should contain(/CKEDITOR\.replace.*?draft_notes/)
     end
   end
 
@@ -411,7 +609,7 @@ describe "RailsAdmin Config DSL Edit Section" do
         end
       end
       get rails_admin_new_path(:model_name => "user")
-      response.should have_tag("input#users_avatar")
+      response.should have_tag("input#user_avatar")
     end
 
   end
@@ -427,9 +625,6 @@ describe "RailsAdmin Config DSL Edit Section" do
       end
       get rails_admin_new_path(:model_name => "team")
       response.should have_tag("input.color")
-
-      #Reset
-      RailsAdmin::Config.reset Team
     end
   end
 end

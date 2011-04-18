@@ -19,7 +19,7 @@
 
     def save(options = { :validate => true })
       method = options[:validate] ? :save : :save!
-      object.send(method) and update_all_associations
+      update_all_associations and object.send(method)
     end
 
     protected
@@ -35,6 +35,7 @@
           begin
             case association[:type]
             when :has_one
+              object.save
               update_association(association, ids)
             when :has_many, :has_and_belongs_to_many
               update_associations(association, ids.to_a)
@@ -50,7 +51,6 @@
     def update_associations(association, ids = [])
       associated_model = RailsAdmin::AbstractModel.new(association[:child_model])
       object.send "#{association[:name]}=", ids.collect{|id| associated_model.get(id)}.compact
-      object.save
     end
 
     def update_association(association, id = nil)
