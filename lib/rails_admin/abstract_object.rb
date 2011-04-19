@@ -50,7 +50,7 @@
 
     def update_associations(association, ids = [])
       associated_model = RailsAdmin::AbstractModel.new(association[:child_model])
-      object.send "#{association[:name]}=", ids.collect{|id| associated_model.get(id)}.compact
+      object.send "#{association[:name]}=", ids.collect{|id| associated_model.model.get(id)}.compact
     end
 
     def update_association(association, id = nil)
