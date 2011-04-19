@@ -98,6 +98,7 @@ module RailsAdmin
             :parent_key   => relationship.parent_key.map { |property| property.name },
             :child_model  => relationship.child_model,
             :child_key    => relationship.child_key.map { |property| property.name },
+            :options      => {},
           }
         end
       end
