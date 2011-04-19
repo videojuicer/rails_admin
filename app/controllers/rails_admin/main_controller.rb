@@ -219,8 +219,6 @@ module RailsAdmin
       query = params[:query]
       return {} unless query
       field_search = !!query.index(":")
-      statements = []
-      values = []
 
       model      = @abstract_model.model
       collection = nil
@@ -247,28 +245,25 @@ module RailsAdmin
     def get_filter_hash(options)
       filter = params[:filter]
       return {} unless filter
-      statements = []
-      values = []
-      conditions = options[:conditions] || [""]
-      table_name = @abstract_model.model.table_name
+
+      model      = @abstract_model.model
+      collection = nil
 
       filter.each_pair do |key, value|
         if field = @model_config.list.fields.find {|f| f.name == key.to_sym}
-          case field.type
+          new_collection = case field.type
           when :string, :text
-            statements << "(#{table_name}.#{key} LIKE ?)"
-            values << value
+            model.all(field.name.like => value)
           when :boolean
-            statements << "(#{table_name}.#{key} = ?)"
-            values << (value == "true")
+            model.all(field.name => value)
+          else
+            model.all
           end
+          collection = (collection ? collection | new_collection : new_collection)
         end
       end
 
-      conditions[0] += " AND " unless conditions == [""]
-      conditions[0] += statements.join(" AND ")
-      conditions += values
-      conditions != [""] ? {:conditions => conditions} : {}
+      { :conditions => collection.query.conditions }
     end
 
     def get_attributes
