@@ -11,6 +11,10 @@ module RailsAdmin
           # Register field type for the type loader
           RailsAdmin::Config::Fields::Types::register(self)
 
+          register_instance_option(:partial) do
+            :file_upload
+          end
+
           register_instance_option(:help) do
             required? ? I18n.translate("admin.new.required") : I18n.translate("admin.new.optional")
           end
