@@ -61,7 +61,7 @@
     def update_association(association, id = nil)
       associated_model = RailsAdmin::AbstractModel.new(association[:child_model])
       if associated = associated_model.get(id)
-        associated.update(association[:child_key].first => object.id)
+        associated.update(association => object)
       end
     end
   end
